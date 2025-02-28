@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DPI Converter for Android</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>DPI Converter for Android</h1>
+        <input type="file" id="fileInput" multiple>
+        <button onclick="processImages()">Convert & Download ZIP</button>
+        <ul id="fileList"></ul>
+    </div>
+
+    <script>
+        const dpiScales = {
+            ldpi: 0.75,
+            mdpi: 1.0,
+            hdpi: 1.5,
+            xhdpi: 2.0,
+            xxhdpi: 3.0,
+            xxxhdpi: 4.0,
+        };
+
+        document.getElementById('fileInput').addEventListener('change', function(event) {
+            const fileList = document.getElementById('fileList');
+            fileList.innerHTML = '';
+            for (const file of event.target.files) {
+                const listItem = document.createElement('li');
+                listItem.textContent = file.name;
+                fileList.appendChild(listItem);
+            }
+        });
+
+        async function processImages() {
+            const input = document.getElementById('fileInput');
+            if (input.files.length === 0) return;
+            
+            const zip = new JSZip();
+            for (const file of input.files) {
+                const imageBitmap = await createImageBitmap(file);
+                for (const [dpi, scale] of Object.entries(dpiScales)) {
+                    const resizedCanvas = document.createElement('canvas');
+                    resizedCanvas.width = imageBitmap.width * scale;
+                    resizedCanvas.height = imageBitmap.height * scale;
+                    const ctx = resizedCanvas.getContext('2d');
+                    ctx.drawImage(imageBitmap, 0, 0, resizedCanvas.width, resizedCanvas.height);
+                    
+                    const dataURL = resizedCanvas.toDataURL('image/png');
+                    const base64Data = dataURL.split(',')[1];
+                    zip.file(`${dpi}/${file.name}`, base64Data, { base64: true });
+                }
+            }
+
+            zip.generateAsync({ type: "blob" }).then((blob) => {
+                saveAs(blob, "DPI_Converted_Images.zip");
+            });
+        }
+    </script>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #f4f4f4;
+            color: #333;
+            padding: 20px;
+        }
+        .container {
+            max-width: 500px;
+            margin: auto;
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #007BFF;
+        }
+        input[type="file"] {
+            display: block;
+            margin: 10px auto;
+        }
+        button {
+            margin-top: 10px;
+            padding: 10px 15px;
+            font-size: 16px;
+            cursor: pointer;
+            background: #007BFF;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            transition: 0.3s;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        ul {
+            list-style-type: none;
+            padding: 0;
+            margin-top: 10px;
+        }
+        li {
+            padding: 8px;
+            background: #f8f9fa;
+            margin: 5px 0;
+            border-radius: 5px;
+            box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</body>
+</html>
