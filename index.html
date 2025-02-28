@@ -11,8 +11,15 @@
 <body>
     <div class="container">
         <h1>DPI Converter for Android</h1>
-        <input type="file" id="fileInput" multiple>
-        <button onclick="processImages()">Convert & Download ZIP</button>
+        <label class="custom-file-upload">
+            <input type="file" id="fileInput" multiple accept="image/*">
+            Select Images
+        </label>
+        <div class="slider-container">
+            <label for="qualitySlider">Compression Quality: <span id="qualityValue">1.0</span></label>
+            <input type="range" id="qualitySlider" min="0.1" max="1.0" step="0.1" value="1.0">
+        </div>
+        <button onclick="processImages()" class="convert-btn">Convert & Download ZIP</button>
         <ul id="fileList"></ul>
     </div>
 
@@ -36,24 +43,39 @@
             }
         });
 
+        document.getElementById('qualitySlider').addEventListener('input', function() {
+            document.getElementById('qualityValue').textContent = this.value;
+        });
+
         async function processImages() {
             const input = document.getElementById('fileInput');
+            const quality = parseFloat(document.getElementById('qualitySlider').value);
             if (input.files.length === 0) return;
             
             const zip = new JSZip();
             for (const file of input.files) {
-                const imageBitmap = await createImageBitmap(file);
+                const img = new Image();
+                const objectURL = URL.createObjectURL(file);
+                img.src = objectURL;
+                await new Promise((resolve) => img.onload = resolve);
+                
                 for (const [dpi, scale] of Object.entries(dpiScales)) {
                     const resizedCanvas = document.createElement('canvas');
-                    resizedCanvas.width = imageBitmap.width * scale;
-                    resizedCanvas.height = imageBitmap.height * scale;
+                    resizedCanvas.width = Math.round(img.width * scale);
+                    resizedCanvas.height = Math.round(img.height * scale);
                     const ctx = resizedCanvas.getContext('2d');
-                    ctx.drawImage(imageBitmap, 0, 0, resizedCanvas.width, resizedCanvas.height);
+                    ctx.drawImage(img, 0, 0, resizedCanvas.width, resizedCanvas.height);
                     
-                    const dataURL = resizedCanvas.toDataURL('image/png');
-                    const base64Data = dataURL.split(',')[1];
-                    zip.file(`${dpi}/${file.name}`, base64Data, { base64: true });
+                    const fileExtension = file.name.split('.').pop().toLowerCase();
+                    let mimeType = `image/${fileExtension}`;
+                    if (fileExtension === 'jpg') mimeType = 'image/jpeg';
+                    if (fileExtension === 'png') mimeType = 'image/png';
+                    if (fileExtension === 'webp') mimeType = 'image/webp';
+                    
+                    const dataURL = resizedCanvas.toDataURL(mimeType, quality);
+                    zip.file(`${dpi}/${file.name}`, dataURL.split(',')[1], { base64: true });
                 }
+                URL.revokeObjectURL(objectURL);
             }
 
             zip.generateAsync({ type: "blob" }).then((blob) => {
@@ -66,38 +88,50 @@
         body {
             font-family: Arial, sans-serif;
             text-align: center;
-            background-color: #f4f4f4;
-            color: #333;
             padding: 20px;
+            background: #f4f4f4;
         }
         .container {
             max-width: 500px;
             margin: auto;
             padding: 20px;
-            background: white;
             border-radius: 10px;
-            box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+            background: #fff;
+            box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
         }
         h1 {
-            color: #007BFF;
+            color: #333;
         }
-        input[type="file"] {
-            display: block;
-            margin: 10px auto;
-        }
-        button {
+        .custom-file-upload {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #007bff;
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
             margin-top: 10px;
+        }
+        .custom-file-upload input {
+            display: none;
+        }
+        .slider-container {
+            margin: 15px 0;
+        }
+        #qualitySlider {
+            width: 100%;
+        }
+        .convert-btn {
+            margin-top: 15px;
             padding: 10px 15px;
             font-size: 16px;
-            cursor: pointer;
-            background: #007BFF;
+            background: #28a745;
             color: white;
             border: none;
             border-radius: 5px;
-            transition: 0.3s;
+            cursor: pointer;
         }
-        button:hover {
-            background: #0056b3;
+        .convert-btn:hover {
+            background: #218838;
         }
         ul {
             list-style-type: none;
@@ -106,10 +140,7 @@
         }
         li {
             padding: 8px;
-            background: #f8f9fa;
-            margin: 5px 0;
-            border-radius: 5px;
-            box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.1);
+            border-bottom: 1px solid #ddd;
         }
     </style>
 </body>
